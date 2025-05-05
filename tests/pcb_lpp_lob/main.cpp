@@ -6,6 +6,7 @@
 #endif
 
 #include "ftdi.hpp"
+#include "simple_protocol.hpp"
 
 TEST_CASE("", "")
 {
@@ -15,8 +16,11 @@ TEST_CASE("", "")
         auto ftdi = FtdiDevice<Interface::A, Mode::SYNCFF, 0xff>(found[0]);
         REQUIRE(ftdi.opened());
         ftdi.set_latency_timer(250);
-        ftdi.flush_buffers();
-        auto data = ftdi.read(64);
-        REQUIRE(std::size(data) == 64);
+        ftdi.flush();
+        auto decoder = make_simple_decoder<4, 4096>(std::move(ftdi));
+        decoder.start();
+        auto data = decoder.samples.take();
+        decoder.stop();
+        REQUIRE(data.has_value());
     }
 }

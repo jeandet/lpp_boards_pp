@@ -1,0 +1,7 @@
+[wrap-git]
+url=https://github.com/SciQLop/channels
+revision=main
+depth=1
+
+[provide]
+channels=channels_dep

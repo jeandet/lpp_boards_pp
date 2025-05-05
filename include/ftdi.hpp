@@ -1,13 +1,17 @@
+#pragma once
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "concepts.hpp"
 #include <array>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
-
 namespace _ftdi
 {
-#include <libftdi1/ftdi.h>
+#include <ftdi.h>
 }
+
 
 class FtdiCtxWrapper
 {
@@ -32,6 +36,26 @@ public:
             this->ctx = nullptr;
         }
     }
+
+    FtdiCtxWrapper(const FtdiCtxWrapper&) = delete;
+    FtdiCtxWrapper(FtdiCtxWrapper&& other) : ctx { other.ctx } { other.ctx = nullptr; }
+
+    FtdiCtxWrapper& operator=(const FtdiCtxWrapper&) = delete;
+    FtdiCtxWrapper& operator=(FtdiCtxWrapper&& other)
+    {
+        if (this != &other)
+        {
+            if (this->ctx != nullptr)
+            {
+                this->ftdi_call(_ftdi::ftdi_usb_close);
+                this->ftdi_call(_ftdi::ftdi_free);
+            }
+            this->ctx = other.ctx;
+            other.ctx = nullptr;
+        }
+        return *this;
+    }
+
     inline operator _ftdi::ftdi_context*() { return ctx; }
 };
 
@@ -94,10 +118,11 @@ public:
     void flush_write_buffer();
     void flush_buffers();
 
-    inline auto read(auto& buffer, std::size_t count) noexcept
+
+    inline auto read(pointer_to_contiguous_memory auto buffer, std::size_t count) noexcept
     {
         auto read = this->ftdi_call(
-            _ftdi::ftdi_read_data, reinterpret_cast<unsigned char*>(std::data(buffer)), count);
+            _ftdi::ftdi_read_data, reinterpret_cast<unsigned char*>(buffer), count);
         return read;
     }
 };
@@ -123,12 +148,12 @@ public:
 
     inline void flush_read_buffer() { _driver.flush_read_buffer(); }
     inline void flush_write_buffer() { _driver.flush_write_buffer(); }
-    inline void flush_buffers() { _driver.flush_buffers(); }
+    inline void flush() { _driver.flush_buffers(); }
 
     inline auto read(std::size_t count) noexcept
     {
         std::vector<unsigned char> buffer(count);
-        auto read = _driver.read(buffer, count);
+        auto read = _driver.read(std::data(buffer), count);
         if (static_cast<std::size_t>(read) != count)
         {
             if (read >= 0)
@@ -139,7 +164,7 @@ public:
         return buffer;
     }
 
-    inline auto read(auto&& buffer, std::size_t count) noexcept
+    inline auto read(pointer_to_contiguous_memory auto buffer, std::size_t count) noexcept
     {
         return _driver.read(std::forward<decltype(buffer)>(buffer), count);
     }

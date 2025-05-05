@@ -7,18 +7,37 @@ project(
   license : 'GPL3'
 )
 
-header_files = files('include/simple_protocol.hpp', 'include/ftdi.hpp')
+if build_machine.system() == 'windows'
+    link_args = ['-static-libstdc++','-static-libgcc','-static']
+elif build_machine.system() == 'darwin' and meson.get_compiler('cpp').get_id() != 'clang'
+    link_args = ['-static-libstdc++','-static-libgcc']
+else
+    link_args = []
+endif
+
+header_files = files('include/concepts.hpp', 'include/simple_protocol.hpp', 'include/ftdi.hpp')
 source_files = files('src/ftdi.cpp')
 
-libftdi = meson.get_compiler('cpp').find_library('ftdi1')
+libftdi = dependency('libftdi')
+channels = dependency('channels', required : true)
+cpp_utils = dependency('cpp_utils', required : true)
 
 lpp_boards_pp_dep = declare_dependency(
     include_directories : include_directories('include'),
     sources: source_files,
-    dependencies : libftdi,
-    extra_files: header_files,
+    link_args: link_args,
+    dependencies : [libftdi, channels, cpp_utils],
+    extra_files: [header_files, '.github/workflows/CI.yml', 'pyproject.toml', 'README.md'],
     )
 subdir('tests')
+
+
+if get_option('disable_python_wrapper')
+     message('building without Python wrapper')
+ else
+     subdir('pylpp_boards_pp')
+endif
+
 
 
 summary({'C': meson.get_compiler('c').cmd_array(),
