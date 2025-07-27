@@ -29,16 +29,61 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/stl_bind.h>
 
+#include "ftdi.hpp"
+#include "pcb_lob.hpp"
+#include "simple_protocol.hpp"
 
-PYBIND11_MODULE(_pylpp_boards_pp, m)
+#include <fmt/ranges.h>
+
+namespace py = pybind11;
+
+PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
 {
     m.doc() = R"pbdoc(
         _pylpp_boards_pp
         --------
     )pbdoc";
 
+    m.def("list_pcb_lob",
+        []() { return FtdiDriver::find_by_manufacturer_and_description("LPP", "PCB_LOB"); });
 
-
+    py::class_<PCB_LOB>(m, "PCB_LOB", R"pbdoc(
+        PCB_LOB class
+        --------
+        A class to handle the PCB_LOB device.
+        Attributes
+        ----------
+        serial_number: str
+            Serial number of the device.
+        )pbdoc")
+        .def(py::init<>([](const std::string& serial) { return new PCB_LOB { serial }; }))
+        .def_property_readonly("samples",
+            [](PCB_LOB& dev) -> py::array_t<int16_t>
+            {
+                if(auto samples = dev.samples())
+                {
+                    auto& s = *samples;
+                    auto arr = py::array_t<int16_t>(std::vector<ssize_t> { 4, 4096 },
+                        std::vector<ssize_t> { 4096 * sizeof(int16_t), sizeof(int16_t) });
+                    auto ptr = arr.mutable_unchecked<2>();
+                    for (size_t i = 0; i < 4; ++i)
+                    {
+                        auto& sample = s[i];
+                        for (size_t j = 0; j < 4096; ++j)
+                        {
+                            ptr(i, j) = sample[j];
+                        }
+                    }
+                    return arr;
+                }
+                return py::none();
+            })
+        .def("start", &PCB_LOB::start)
+        .def("stop", &PCB_LOB::stop)
+        .def("serial_number", &PCB_LOB::serial_number)
+        .def("__repr__", [](const PCB_LOB& dev)
+            { return fmt::format("PCB_LOB(serial_number='{}')", dev.serial_number()); })
+        .def("opened", &PCB_LOB::opened)
+        .def("flush", &PCB_LOB::flush);
 }

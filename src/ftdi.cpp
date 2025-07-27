@@ -118,8 +118,8 @@ void FtdiDriver::set_latency_timer(unsigned char latency)
     this->ftdi_call(_ftdi::ftdi_set_latency_timer, latency);
 }
 
-void FtdiDriver::flush_read_buffer() { this->ftdi_call(_ftdi::ftdi_tciflush); }
+void FtdiDriver::flush_read_buffer() const{ this->ftdi_call(_ftdi::ftdi_tciflush); }
 
-void FtdiDriver::flush_write_buffer() { this->ftdi_call(_ftdi::ftdi_tcoflush); }
+void FtdiDriver::flush_write_buffer() const{ this->ftdi_call(_ftdi::ftdi_tcoflush); }
 
-void FtdiDriver::flush_buffers() { this->ftdi_call(_ftdi::ftdi_tcioflush); }
+void FtdiDriver::flush_buffers()const { this->ftdi_call(_ftdi::ftdi_tcioflush); }

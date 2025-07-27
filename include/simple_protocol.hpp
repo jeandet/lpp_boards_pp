@@ -5,6 +5,7 @@
 #include "concepts.hpp"
 #include <channels/channels.hpp>
 #include <cstddef>
+#include "auto_recycled_channel.hpp"
 
 void _next(pointer_to_contiguous_memory auto& output, auto&... outputs)
 {
@@ -67,14 +68,13 @@ class simple_decoder
 
     simple_decoder() = default;
 
-public:
-    channels::channel<std::array<std::array<int16_t, window_size>, channels_count + 1>, 8,
-        channels::full_policy::overwrite_last>
-        samples;
+    auto_recycled_channel<std::array<std::array<int16_t, window_size>, channels_count + 1>, 8,
+            channels::full_policy::overwrite_last>
+            samples;
 
-    channels::channel<std::array<std::array<int16_t, window_size>, channels_count + 1>, 8,
-        channels::full_policy::overwrite_last>
-        buffers;
+public:
+
+    auto& data_producer() const { return _data_producer; }
 
     /** Construct a simple decoder.
      *  @param producer The data producer, it must implement the data_producer concept.
@@ -83,7 +83,7 @@ public:
     {
         for (auto i = 0UL; i < 8; i++)
         {
-            buffers.add({});
+            samples.recycle({});
         }
     }
 
@@ -94,8 +94,9 @@ public:
     inline void stop()
     {
         _running.store(false);
-        if (_thread.joinable())
+        if (_thread.joinable()) {
             _thread.join();
+        }
     }
 
     /** Decode a buffer of samples according to the simple protocol.
@@ -145,16 +146,19 @@ public:
             auto got = _data_producer.read(std::data(_buffer), bytes_per_window);
             if (got == bytes_per_window && _is_sync_word(_buffer, 0))
             {
-                if (auto out = buffers.take(); out.has_value())
+                while(_running.load())
                 {
-                    auto out_ref = std::move(*out);
-                    auto [decoded_sample, consumed_bytes]
-                        = [&]<std::size_t... Is>(std::index_sequence<Is...>)
+                    if (auto out =samples.get_new(1000000); out.has_value())
                     {
-                        return simple_decoder::decode(
-                            std::data(_buffer), got, window_size, std::data(out_ref[Is])...);
-                    }(std::make_index_sequence<std::tuple_size<decltype(out_ref)> {}> {});
-                    samples.add(out_ref);
+                        auto& out_ref = *out;
+                        auto [decoded_sample, consumed_bytes]
+                            = [&]<std::size_t... Is>(std::index_sequence<Is...>)
+                        {
+                            return simple_decoder::decode(
+                                std::data(_buffer), got, window_size, std::data(out_ref[Is])...);
+                        }(std::make_index_sequence<std::tuple_size<std::decay_t<decltype(out_ref)>> {}> {});
+                        break;
+                    }
                 }
             }
             else
@@ -162,6 +166,11 @@ public:
                 _resync();
             }
         }
+    }
+
+    auto get_samples(int timeout_ns = -1)
+    {
+        return samples.take(timeout_ns);
     }
 };
 

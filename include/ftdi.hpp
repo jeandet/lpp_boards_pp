@@ -18,7 +18,7 @@ class FtdiCtxWrapper
     _ftdi::ftdi_context* ctx = nullptr;
 
 public:
-    auto ftdi_call(auto& function, auto&&... args)
+    auto ftdi_call(auto& function, auto&&... args) const
     {
         if (ctx != nullptr)
             return function(this->ctx, std::forward<decltype(args)>(args)...);
@@ -99,14 +99,14 @@ public:
     static std::vector<std::string> find_by_manufacturer_and_description(
         const std::string& manufacturer, const std::string& description);
 
-    auto ftdi_call(auto& function, auto&&... args)
+    auto ftdi_call(auto& function, auto&&... args)const
     {
         return this->ctx.ftdi_call(function, std::forward<decltype(args)>(args)...);
     }
 
     bool open(const std::string& serial, Interface interface = Interface::ANY,
         Mode mode = Mode::SERIAL, unsigned char io_mask = 0);
-    inline bool opened() { return this->_opened; }
+    inline bool opened() const { return this->_opened; }
 
 
     void set_read_buffer_size(std::size_t size);
@@ -114,9 +114,9 @@ public:
     void set_latency_timer(unsigned char latency);
 
 
-    void flush_read_buffer();
-    void flush_write_buffer();
-    void flush_buffers();
+    void flush_read_buffer()const;
+    void flush_write_buffer()const;
+    void flush_buffers()const;
 
 
     inline auto read(pointer_to_contiguous_memory auto buffer, std::size_t count) noexcept
@@ -131,16 +131,23 @@ template <Interface interface, Mode mode, unsigned char io_mask>
 class FtdiDevice
 {
     FtdiDriver _driver;
+    std::string _serial_number;
 
 public:
     FtdiDevice() { }
     FtdiDevice(const std::string& serial) { open(serial); }
 
+    inline const std::string& serial_number() const
+    {
+        return _serial_number;
+    }
+
     inline bool open(const std::string& serial)
     {
+        _serial_number = serial;
         return _driver.open(serial, interface, mode, io_mask);
     }
-    inline bool opened() { return this->_driver.opened(); }
+    inline bool opened()const { return this->_driver.opened(); }
 
     inline void set_read_buffer_size(std::size_t size) { _driver.set_read_buffer_size(size); }
     inline void set_write_buffer_size(std::size_t size) { _driver.set_write_buffer_size(size); }
@@ -148,7 +155,7 @@ public:
 
     inline void flush_read_buffer() { _driver.flush_read_buffer(); }
     inline void flush_write_buffer() { _driver.flush_write_buffer(); }
-    inline void flush() { _driver.flush_buffers(); }
+    inline void flush() const { _driver.flush_buffers(); }
 
     inline auto read(std::size_t count) noexcept
     {

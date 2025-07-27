@@ -15,18 +15,26 @@ else
     link_args = []
 endif
 
-header_files = files('include/concepts.hpp', 'include/simple_protocol.hpp', 'include/ftdi.hpp')
+header_files = files(
+                    'include/auto_recycled_channel.hpp',
+                    'include/concepts.hpp',
+                    'include/simple_protocol.hpp',
+                    'include/ftdi.hpp',
+                    'include/pcb_lob.hpp'
+                    )
+
 source_files = files('src/ftdi.cpp')
 
 libftdi = dependency('libftdi')
 channels = dependency('channels', required : true)
 cpp_utils = dependency('cpp_utils', required : true)
+fmt = dependency('fmt', required : true)
 
 lpp_boards_pp_dep = declare_dependency(
     include_directories : include_directories('include'),
     sources: source_files,
     link_args: link_args,
-    dependencies : [libftdi, channels, cpp_utils],
+    dependencies : [libftdi, channels, cpp_utils, fmt],
     extra_files: [header_files, '.github/workflows/CI.yml', 'pyproject.toml', 'README.md'],
     )
 subdir('tests')
