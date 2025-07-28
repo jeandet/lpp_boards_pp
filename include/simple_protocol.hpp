@@ -128,7 +128,7 @@ public:
         using namespace std::chrono_literals;
         std::vector<char> _buffer;
         _buffer.resize(_bytes_per_window*2);
-        auto consume_data = [&]()
+        auto consume_data = [&]()->std::size_t
         {
             std::size_t got = _data_producer.read(std::data(_buffer), _bytes_per_window);
             if (!_is_sync_word(_buffer, 0))
@@ -138,7 +138,7 @@ public:
             }
             if (got < _bytes_per_packet)
             {
-                return 0UL;
+                return std::size_t{0};
             }
             return got;
         };

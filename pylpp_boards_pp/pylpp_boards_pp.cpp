@@ -23,6 +23,9 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 
 #include <pybind11/chrono.h>
 #include <pybind11/iostream.h>
@@ -33,6 +36,11 @@
 #include "ftdi.hpp"
 #include "pcb_lob.hpp"
 #include "simple_protocol.hpp"
+
+#ifndef ssize_t
+#include <cstddef>
+using ssize_t = std::ptrdiff_t;
+#endif
 
 #include <fmt/ranges.h>
 
@@ -57,26 +65,26 @@ PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
         serial_number: str
             Serial number of the device.
         )pbdoc")
-        .def(py::init<>([](const std::string& serial, std::size_t samples_count=4096) { return new PCB_LOB { serial, samples_count}; }),
-            py::arg("serial_number"), py::arg("samples_count") = 4096
-            )
+        .def(py::init<>([](const std::string& serial, std::size_t samples_count = 4096)
+                 { return new PCB_LOB { serial, samples_count }; }),
+            py::arg("serial_number"), py::arg("samples_count") = 4096)
         .def_property_readonly("samples",
             [](PCB_LOB& dev) -> py::array_t<int16_t>
             {
                 if (auto all_chan = dev.samples())
                 {
                     auto& s = *all_chan;
-                    constexpr auto channels_count = PCB_LOB::channel_count+1;
+                    constexpr auto channels_count = PCB_LOB::channel_count + 1;
 
                     auto arr = py::array_t<int16_t>(
-                        std::vector<ssize_t> {  static_cast<ssize_t>(s.rows()), channels_count });
+                        std::vector<ssize_t> { static_cast<ssize_t>(s.rows()), channels_count });
                     auto ptr = arr.mutable_unchecked<2>();
                     for (std::size_t i = 0; i < channels_count; ++i)
                     {
 
                         for (std::size_t j = 0; j < s.rows(); ++j)
                         {
-                            ptr(j,i) = s[{j,i}];
+                            ptr(j, i) = s[{ j, i }];
                         }
                     }
                     return arr;
