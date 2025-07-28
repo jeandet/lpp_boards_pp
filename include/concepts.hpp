@@ -11,4 +11,16 @@ concept data_producer = requires(T t) {
     { t.flush() } -> std::same_as<void>;
 };
 
+template <typename T>
+concept array2d = requires(T t) {
+    { t.rows() } -> std::convertible_to<std::size_t>;
+    { t.cols() } -> std::convertible_to<std::size_t>;
+    { t.size() } -> std::convertible_to<std::size_t>;
+    { t.data() } -> std::same_as<typename T::value_type*>;
+    { t(0, 0) } -> std::same_as<typename T::reference>;
+    { t(0, 0) } -> std::same_as<typename T::const_reference>;
+    { t[{0, 0}] } -> std::same_as<typename T::reference>;
+    { t[{0, 0}] } -> std::same_as<typename T::const_reference>;
+};
+
 using namespace cpp_utils::types::concepts;

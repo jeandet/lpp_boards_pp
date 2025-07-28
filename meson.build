@@ -20,7 +20,8 @@ header_files = files(
                     'include/concepts.hpp',
                     'include/simple_protocol.hpp',
                     'include/ftdi.hpp',
-                    'include/pcb_lob.hpp'
+                    'include/pcb_lob.hpp',
+                    'include/array2d.hpp'
                     )
 
 source_files = files('src/ftdi.cpp')

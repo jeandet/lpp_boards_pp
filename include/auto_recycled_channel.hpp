@@ -24,6 +24,19 @@ struct auto_recycled_value
 
     auto_recycled_value() : value(std::nullopt), channel{nullptr} { }
 
+    auto_recycled_value& operator=(const auto_recycled_value&) = delete;
+    auto_recycled_value& operator=(auto_recycled_value&& other)
+    {
+        if (this != &other)
+        {
+            recycle();
+            value = std::move(other.value);
+            channel = other.channel;
+            other.value = std::nullopt; // Prevent recycling of the moved-from value
+        }
+        return *this;
+    }
+
     operator bool() const noexcept { return has_value(); }
 
     bool has_value() const noexcept { return value.has_value(); }
@@ -31,9 +44,15 @@ struct auto_recycled_value
 
     ~auto_recycled_value()
     {
+        recycle();
+    }
+
+    void recycle()
+    {
         if (channel && !channel->closed() && value.has_value())
         {
             channel->add(std::move(*value));
+            value = std::nullopt; // Clear the value after recycling
         }
     }
 
@@ -78,9 +97,9 @@ public:
         return *this;
     }
 
-    inline recycled_value_t take(int timeout_ns = -1)
+    inline recycled_value_t take(std::optional<std::chrono::nanoseconds> timeout_ns = std::nullopt)
     {
-        if (auto item = _channel.take(timeout_ns > 0 ? std::optional{std::chrono::nanoseconds(timeout_ns)} : std::nullopt))
+        if (auto item = _channel.take(timeout_ns))
         {
             return recycled_value_t(std::move(*item), &_recycled);
         }
@@ -98,9 +117,9 @@ public:
         _recycled.add(std::move(item));
     }
 
-    inline recycled_value_t get_new(int timeout_ns = -1)
+    inline recycled_value_t get_new(std::optional<std::chrono::nanoseconds> timeout_ns = std::nullopt)
     {
-        if (auto item = _recycled.take(timeout_ns > 0 ? std::optional{std::chrono::nanoseconds(timeout_ns)} : std::nullopt))
+        if (auto item = _recycled.take(timeout_ns))
         {
             return recycled_value_t(std::move(*item), &_channel);
         }

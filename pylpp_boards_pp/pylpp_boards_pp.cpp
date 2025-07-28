@@ -57,27 +57,44 @@ PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
         serial_number: str
             Serial number of the device.
         )pbdoc")
-        .def(py::init<>([](const std::string& serial) { return new PCB_LOB { serial }; }))
+        .def(py::init<>([](const std::string& serial, std::size_t samples_count=4096) { return new PCB_LOB { serial, samples_count}; }),
+            py::arg("serial_number"), py::arg("samples_count") = 4096
+            )
         .def_property_readonly("samples",
             [](PCB_LOB& dev) -> py::array_t<int16_t>
             {
-                if(auto samples = dev.samples())
+                if (auto all_chan = dev.samples())
                 {
-                    auto& s = *samples;
-                    auto arr = py::array_t<int16_t>(std::vector<ssize_t> { 4, 4096 },
-                        std::vector<ssize_t> { 4096 * sizeof(int16_t), sizeof(int16_t) });
+                    auto& s = *all_chan;
+                    constexpr auto channels_count = PCB_LOB::channel_count+1;
+
+                    auto arr = py::array_t<int16_t>(
+                        std::vector<ssize_t> {  static_cast<ssize_t>(s.rows()), channels_count });
                     auto ptr = arr.mutable_unchecked<2>();
-                    for (size_t i = 0; i < 4; ++i)
+                    for (std::size_t i = 0; i < channels_count; ++i)
                     {
-                        auto& sample = s[i];
-                        for (size_t j = 0; j < 4096; ++j)
+
+                        for (std::size_t j = 0; j < s.rows(); ++j)
                         {
-                            ptr(i, j) = sample[j];
+                            ptr(j,i) = s[{j,i}];
                         }
                     }
                     return arr;
                 }
                 return py::none();
+            })
+        .def("_get_raw_data",
+            [](PCB_LOB& dev, py::ssize_t count)
+            {
+                auto arr = py::array_t<unsigned char>(
+                    std::vector<ssize_t> { count }, std::vector<ssize_t> { 1 });
+                auto ptr = arr.mutable_unchecked<1>();
+                auto read = dev.get_raw_data(reinterpret_cast<char*>(&ptr[0]), count);
+                if (static_cast<ssize_t>(read) < count)
+                {
+                    arr.resize({ read });
+                }
+                return arr;
             })
         .def("start", &PCB_LOB::start)
         .def("stop", &PCB_LOB::stop)

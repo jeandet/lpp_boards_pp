@@ -6,8 +6,8 @@
 #endif
 
 #include "ftdi.hpp"
-#include "simple_protocol.hpp"
 #include "pcb_lob.hpp"
+#include "simple_protocol.hpp"
 
 TEST_CASE("", "")
 {
@@ -18,7 +18,7 @@ TEST_CASE("", "")
         REQUIRE(ftdi.opened());
         ftdi.set_latency_timer(250);
         ftdi.flush();
-        auto decoder = make_simple_decoder<4, 4096>(std::move(ftdi));
+        auto decoder = make_simple_decoder<4>(4096, std::move(ftdi));
         decoder.start();
         auto data = decoder.get_samples();
         decoder.stop();
@@ -29,7 +29,7 @@ TEST_CASE("", "")
         auto PCB = PCB_LOB(found[0]);
         REQUIRE(PCB.opened());
         PCB.start();
-        for(int i = 0; i < 10; ++i)
+        for (int i = 0; i < 1000; ++i)
         {
             auto samples = PCB.samples();
             REQUIRE(samples.has_value());
