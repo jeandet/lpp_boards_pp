@@ -1,23 +1,26 @@
 
+#include "filter.hpp"
 #include "ftdi.hpp"
 #include "simple_protocol.hpp"
+#include <memory>
 
 class PCB_LOB
 {
 public:
     static constexpr auto channel_count = 4;
-    using decoder_type = decltype(make_simple_decoder<channel_count>(4096,
-        FtdiDevice<Interface::A, Mode::SYNCFF, 0xff> {}));
+    using decoder_type = decltype(make_simple_decoder<channel_count>(
+        4096, FtdiDevice<Interface::A, Mode::SYNCFF, 0xff> {}));
 
-    PCB_LOB(const std::string& serial_number, std::size_t samples_count = 4096)
-            : _dev { make_simple_decoder<channel_count>(samples_count,
-                  FtdiDevice<Interface::A, Mode::SYNCFF, 0xff> { serial_number }) }
+    PCB_LOB(
+        const std::string& serial_number, std::size_t samples_count = 4096, bool use_filter = false)
+            : _dev { make_simple_decoder<channel_count>(
+                  samples_count, FtdiDevice<Interface::A, Mode::SYNCFF, 0xff> { serial_number }) }
     {
     }
 
     std::size_t get_raw_data(char* buffer, std::size_t count)
     {
-       return _dev.get_raw_data(buffer, count);
+        return _dev.get_raw_data(buffer, count);
     }
 
     auto& dev() const { return _dev; }
@@ -37,6 +40,8 @@ public:
 
     inline void flush() const { _dev.data_producer().flush(); }
 
+
 private:
     decoder_type _dev;
+    std::array<Filter, channel_count> _filters;
 };

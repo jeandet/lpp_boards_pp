@@ -7,6 +7,7 @@ import os
 import platform
 import numpy as np
 import argparse
+from datetime import timedelta
 
 from pylpp_boards_pp import list_pcb_lob, PCB_LOB
 
@@ -28,12 +29,14 @@ class PCB_LOB_Reader(QThread):
     update_ch2 = Signal(np.ndarray, np.ndarray)
     update_ch3 = Signal(np.ndarray, np.ndarray)
     update_ch4 = Signal(np.ndarray, np.ndarray)
+    update_ch5 = Signal(np.ndarray, np.ndarray)
 
     def __init__(self, parent=None, n_samples=2**8):
         super().__init__(parent)
         self.moveToThread(self)
         try:                      
             self._dev = PCB_LOB(list_pcb_lob()[0], samples_count=n_samples)
+            self._dev.timeout = timedelta(microseconds=1)
             self._dev.start()
             self._x_axis = np.arange(n_samples, dtype=np.float64)
         except ImportError:
@@ -41,26 +44,28 @@ class PCB_LOB_Reader(QThread):
 
     def run(self):
         while True:                                                                                                  
-            data = self._dev.samples                                                                                                         
-            self.update_ch1.emit(self._x_axis, np.ascontiguousarray(data[:,0]) * 1.0)
-            self.update_ch2.emit(self._x_axis, np.ascontiguousarray(data[:,1]) * 1.0)                    
-            self.update_ch3.emit(self._x_axis, np.ascontiguousarray(data[:,2]) * 1.0)
-            self.update_ch4.emit(self._x_axis, np.ascontiguousarray(data[:,3]) * 1.0)                       
+            data = self._dev.samples
+            if data is not None:
+                self.update_ch1.emit(self._x_axis, np.ascontiguousarray(data[:,0]) * 1.0)
+                self.update_ch2.emit(self._x_axis, np.ascontiguousarray(data[:,1]) * 1.0)
+                self.update_ch3.emit(self._x_axis, np.ascontiguousarray(data[:,2]) * 1.0)
+                self.update_ch4.emit(self._x_axis, np.ascontiguousarray(data[:,3]) * 1.0)
+                self.update_ch5.emit(self._x_axis, np.ascontiguousarray(data[:,4]) * 1.0)
             
             
             
 
 class Plots(SciQLopMultiPlotPanel):
-    def __init__(self, parent):
+    def __init__(self, parent, n_samples=2**10):
         SciQLopMultiPlotPanel.__init__(
             self, parent, synchronize_x=False, synchronize_time=True
         )
         self._graphs = []
         if args.board == 'pcb_lob':
-            self._reader = PCB_LOB_Reader(n_samples=2**16)
+            self._reader = PCB_LOB_Reader(n_samples=n_samples)
         else:
             raise ValueError(f"Unsupported board type: {args.board}")
-        for ch in range(4):
+        for ch in range(5):
             p, g = self.plot(
                 np.arange(10) * 1.0,
                 np.arange(10) * 1.0,
@@ -72,15 +77,16 @@ class Plots(SciQLopMultiPlotPanel):
         self._reader.update_ch2.connect(lambda x, y: self._graphs[1].set_data(x, y))
         self._reader.update_ch3.connect(lambda x, y: self._graphs[2].set_data(x, y))
         self._reader.update_ch4.connect(lambda x, y: self._graphs[3].set_data(x, y))
+        self._reader.update_ch5.connect(lambda x, y: self._graphs[4].set_data(x, y))
 
         self._reader.start()
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, n_samples=2**10):
         QMainWindow.__init__(self)
         self.setMouseTracking(True)
-        self.plots = Plots(self)
+        self.plots = Plots(self, n_samples=n_samples)
         self.setCentralWidget(self.plots)
 
 
@@ -88,6 +94,6 @@ if __name__ == "__main__":
     QApplication.setAttribute(Qt.AA_UseDesktopOpenGL, True)
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
     app = QApplication(sys.argv)
-    w = MainWindow()
+    w = MainWindow(n_samples=2**16)
     w.show()
     app.exec()                                                                                                     

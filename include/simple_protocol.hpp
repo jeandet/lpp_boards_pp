@@ -5,6 +5,7 @@
 #include "array2d.hpp"
 #include "auto_recycled_channel.hpp"
 #include "concepts.hpp"
+#include "filter.hpp"
 #include <channels/channels.hpp>
 #include <cstddef>
 #include <cstring>
@@ -75,7 +76,7 @@ public:
     /** Construct a simple decoder.
      *  @param producer The data producer, it must implement the data_producer concept.
      */
-    simple_decoder(std::size_t samples_count, data_producer_t&& producer)
+    simple_decoder(std::size_t samples_count, data_producer_t&& producer, bool use_filter = false)
             : _data_producer(std::move(producer))
     {
         _bytes_per_packet = (channels_count + 2) * _bytes_per_sample;
@@ -192,7 +193,7 @@ public:
 };
 
 template <std::size_t channels_count, data_producer data_producer_t>
-auto make_simple_decoder(std::size_t samples_count , data_producer_t&& producer)
+auto make_simple_decoder(std::size_t samples_count , data_producer_t&& producer, bool use_filter = false)
 {
-    return simple_decoder<channels_count, data_producer_t>(samples_count , std::move(producer));
+    return simple_decoder<channels_count, data_producer_t>(samples_count , std::move(producer), use_filter);
 }

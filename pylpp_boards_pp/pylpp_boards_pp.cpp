@@ -46,6 +46,26 @@ using ssize_t = std::ptrdiff_t;
 
 namespace py = pybind11;
 
+auto get_samples(auto& dev)
+{
+    py::gil_scoped_release release;
+    return dev.samples();
+}
+
+struct py_PCB_LOB : PCB_LOB
+{
+    using PCB_LOB::PCB_LOB;
+
+    inline auto samples() { return PCB_LOB::samples(_timeout_ns); }
+
+    inline auto timeout() { return _timeout_ns; }
+
+    inline void set_timeout(std::chrono::nanoseconds timeout_ns) { _timeout_ns = timeout_ns; }
+
+private:
+    std::optional<std::chrono::nanoseconds> _timeout_ns;
+};
+
 PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
 {
     m.doc() = R"pbdoc(
@@ -56,7 +76,7 @@ PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
     m.def("list_pcb_lob",
         []() { return FtdiDriver::find_by_manufacturer_and_description("LPP", "PCB_LOB"); });
 
-    py::class_<PCB_LOB>(m, "PCB_LOB", R"pbdoc(
+    py::class_<py_PCB_LOB>(m, "PCB_LOB", R"pbdoc(
         PCB_LOB class
         --------
         A class to handle the PCB_LOB device.
@@ -66,19 +86,19 @@ PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
             Serial number of the device.
         )pbdoc")
         .def(py::init<>([](const std::string& serial, std::size_t samples_count = 4096)
-                 { return new PCB_LOB { serial, samples_count }; }),
+                 { return new py_PCB_LOB { serial, samples_count }; }),
             py::arg("serial_number"), py::arg("samples_count") = 4096)
         .def_property_readonly("samples",
-            [](PCB_LOB& dev) -> py::array_t<int16_t>
+            [](py_PCB_LOB& dev) -> py::object
             {
-                if (auto all_chan = dev.samples())
+                if (auto all_chan = get_samples(dev))
                 {
                     auto& s = *all_chan;
-                    constexpr auto channels_count = PCB_LOB::channel_count + 1;
-
+                    constexpr auto channels_count = py_PCB_LOB::channel_count + 1;
                     auto arr = py::array_t<int16_t>(
                         std::vector<ssize_t> { static_cast<ssize_t>(s.rows()), channels_count });
                     auto ptr = arr.mutable_unchecked<2>();
+                    py::gil_scoped_release release;
                     for (std::size_t i = 0; i < channels_count; ++i)
                     {
 
@@ -92,7 +112,7 @@ PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
                 return py::none();
             })
         .def("_get_raw_data",
-            [](PCB_LOB& dev, py::ssize_t count)
+            [](py_PCB_LOB& dev, py::ssize_t count)
             {
                 auto arr = py::array_t<unsigned char>(
                     std::vector<ssize_t> { count }, std::vector<ssize_t> { 1 });
@@ -104,11 +124,16 @@ PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
                 }
                 return arr;
             })
-        .def("start", &PCB_LOB::start)
-        .def("stop", &PCB_LOB::stop)
-        .def("serial_number", &PCB_LOB::serial_number)
-        .def("__repr__", [](const PCB_LOB& dev)
+        .def("start", &py_PCB_LOB::start)
+        .def("stop", &py_PCB_LOB::stop)
+        .def_property("timeout",
+            &py_PCB_LOB::timeout, &py_PCB_LOB::set_timeout,
+            R"pbdoc(
+                Timeout for the device operations in nanoseconds.
+                )pbdoc")
+        .def("serial_number", &py_PCB_LOB::serial_number)
+        .def("__repr__", [](const py_PCB_LOB& dev)
             { return fmt::format("PCB_LOB(serial_number='{}')", dev.serial_number()); })
-        .def("opened", &PCB_LOB::opened)
-        .def("flush", &PCB_LOB::flush);
+        .def("opened", &py_PCB_LOB::opened)
+        .def("flush", &py_PCB_LOB::flush);
 }
