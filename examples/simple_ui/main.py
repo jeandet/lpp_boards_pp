@@ -1,5 +1,5 @@
-from SciQLopPlots import SciQLopMultiPlotPanel
-from PySide6.QtWidgets import QApplication, QMainWindow
+from SciQLopPlots import SciQLopMultiPlotPanel, PropertiesPanel
+from PySide6.QtWidgets import QApplication, QMainWindow, QDockWidget
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QColorConstants
 import sys
@@ -58,7 +58,7 @@ class PCB_LOB_Reader(QThread):
 class Plots(SciQLopMultiPlotPanel):
     def __init__(self, parent, n_samples=2**10):
         SciQLopMultiPlotPanel.__init__(
-            self, parent, synchronize_x=False, synchronize_time=True
+            self, parent, synchronize_x=True, synchronize_time=True
         )
         self._graphs = []
         if args.board == 'pcb_lob':
@@ -88,6 +88,10 @@ class MainWindow(QMainWindow):
         self.setMouseTracking(True)
         self.plots = Plots(self, n_samples=n_samples)
         self.setCentralWidget(self.plots)
+        self.properties_panel = PropertiesPanel(self)
+        dock = QDockWidget("Properties panel", self)
+        dock.setWidget(self.properties_panel)
+        self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
 
 if __name__ == "__main__":
