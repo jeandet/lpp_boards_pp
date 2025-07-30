@@ -85,9 +85,9 @@ PYBIND11_MODULE(_pylpp_boards_pp, m, py::mod_gil_not_used())
         serial_number: str
             Serial number of the device.
         )pbdoc")
-        .def(py::init<>([](const std::string& serial, std::size_t samples_count = 4096)
+        .def(py::init<>([](const std::string& serial, std::size_t samples_count = 4096, unsigned char latency=255)
                  { return new py_PCB_LOB { serial, samples_count }; }),
-            py::arg("serial_number"), py::arg("samples_count") = 4096)
+            py::arg("serial_number"), py::arg("samples_count") = 4096, py::arg("latency") = 255)
         .def_property_readonly("samples",
             [](py_PCB_LOB& dev) -> py::object
             {

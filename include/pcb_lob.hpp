@@ -12,9 +12,9 @@ public:
         4096, FtdiDevice<Interface::A, Mode::SYNCFF, 0xff> {}));
 
     PCB_LOB(
-        const std::string& serial_number, std::size_t samples_count = 4096, bool use_filter = false)
+        const std::string& serial_number, std::size_t samples_count = 4096, unsigned char latency=255, bool use_filter = false)
             : _dev { make_simple_decoder<channel_count>(
-                  samples_count, FtdiDevice<Interface::A, Mode::SYNCFF, 0xff> { serial_number }) }
+                  samples_count, FtdiDevice<Interface::A, Mode::SYNCFF, 0xff> { serial_number, latency}) }
     {
     }
 

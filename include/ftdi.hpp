@@ -135,7 +135,11 @@ class FtdiDevice
 
 public:
     FtdiDevice() { }
-    FtdiDevice(const std::string& serial) { open(serial); }
+    FtdiDevice(const std::string& serial,unsigned char latency=255)
+    {
+        open(serial);
+        set_latency_timer(latency);
+    }
 
     inline const std::string& serial_number() const
     {
